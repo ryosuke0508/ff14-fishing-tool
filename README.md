@@ -1,3 +1,11 @@
+# ヌシ釣りツール（仮）
+
+FF14（ファイナルファンタジー14）の「ヌシ釣り」に関する情報をまとめるWebツールです。
+
+**現在作成中です。** 今後、ヌシの一覧や釣れる時間帯などの機能を追加していく予定です。
+
+---
+
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
 ## Getting Started
