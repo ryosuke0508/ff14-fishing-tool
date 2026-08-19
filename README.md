@@ -31,6 +31,7 @@ supabase/
     0002_grant_fish_select.sql              anon/authenticatedロールへのSELECT権限付与
     0003_split_time_range_add_bait.sql      time_rangeをtime_from/time_toに分割し、baitカラムを追加
     0004_recreate_fish_table_column_order.sql   カラムの並び順を整理するためテーブルを再作成
+  seed.sql   XIVAPIから取得した全魚（name/area/fishing_spot/xivapi_item_id）を一括投入するSQL。is_nushiはデフォルトfalseで入るので、実際のヌシはSupabaseのTable Editorから手動でtrueに変更する
 ```
 
 ## fishテーブルの主なカラム
