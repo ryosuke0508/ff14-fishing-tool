@@ -27,8 +27,10 @@ src/
     xivapi.ts        XIVAPIから魚名・釣れるエリアを取得する関数（現在は未使用。今後、fishテーブルへのデータ一括投入処理で使う予定）
 supabase/
   migrations/
-    0001_create_fish_table.sql   fishテーブルの作成、RLS（Row Level Security）の有効化と読み取り公開ポリシー
-    0002_grant_fish_select.sql   anon/authenticatedロールへのSELECT権限付与
+    0001_create_fish_table.sql              fishテーブルの作成、RLS（Row Level Security）の有効化と読み取り公開ポリシー
+    0002_grant_fish_select.sql              anon/authenticatedロールへのSELECT権限付与
+    0003_split_time_range_add_bait.sql      time_rangeをtime_from/time_toに分割し、baitカラムを追加
+    0004_recreate_fish_table_column_order.sql   カラムの並び順を整理するためテーブルを再作成
 ```
 
 ## fishテーブルの主なカラム
@@ -39,8 +41,10 @@ supabase/
 | `is_nushi` | ヌシかどうか（`true`のものだけ一覧ページに表示） |
 | `area` | 釣れるエリア |
 | `fishing_spot` | 釣り場（エリアより詳細な地点） |
-| `time_range` | 釣れる時間帯（エオルゼア時間） |
+| `time_from` | 釣れる時間帯の開始（エオルゼア時間、`time`型） |
+| `time_to` | 釣れる時間帯の終了（エオルゼア時間、`time`型） |
 | `weather` | 必要な天候 |
+| `bait` | 餌 |
 | `remarks` | 備考（特殊な釣り条件など） |
 | `xivapi_item_id` | XIVAPIのItem行ID（将来の名寄せ用、null可） |
 
