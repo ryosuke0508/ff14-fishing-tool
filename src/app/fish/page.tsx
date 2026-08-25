@@ -22,6 +22,20 @@ function formatTimeRange(from: string | null, to: string | null) {
   return start ?? end ?? "未設定";
 }
 
+// fish.areasは多対一のJOIN結果（実際は単一オブジェクト）だが、
+// Database型を渡していないSupabaseクライアントでは配列と推論されてしまうため、明示的に型定義する
+type FishRow = {
+  id: string;
+  name: string;
+  is_nushi: boolean;
+  time_from: string | null;
+  time_to: string | null;
+  weather: string | null;
+  bait: string | null;
+  remarks: string | null;
+  areas: { area: string; fishing_spot: string | null } | null;
+};
+
 // 魚一覧表示のページコンポーネント
 export default async function FishListPage(props: PageProps<"/fish">) {
   const searchParams = await props.searchParams;
@@ -41,7 +55,7 @@ export default async function FishListPage(props: PageProps<"/fish">) {
   const to = from + PAGE_SIZE - 1;
 
   // DBから魚一覧を取得（areasテーブルをJOINしてエリア情報を取得）
-  const { data: fishList, error } = await supabase
+  const { data, error } = await supabase
     .from("fish")
     .select(
       "id, name, is_nushi, time_from, time_to, weather, bait, remarks, areas(area, fishing_spot)",
@@ -52,6 +66,8 @@ export default async function FishListPage(props: PageProps<"/fish">) {
   if (error) {
     throw new Error(`魚一覧の取得に失敗しました: ${error.message}`);
   }
+
+  const fishList = data as unknown as FishRow[];
 
   return (
     <div className="flex flex-1 flex-col px-4 py-10 sm:px-6">
