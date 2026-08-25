@@ -40,11 +40,11 @@ export default async function FishListPage(props: PageProps<"/fish">) {
   const from = (page - 1) * PAGE_SIZE;
   const to = from + PAGE_SIZE - 1;
 
-  // DBから魚一覧を取得
+  // DBから魚一覧を取得（areasテーブルをJOINしてエリア情報を取得）
   const { data: fishList, error } = await supabase
     .from("fish")
     .select(
-      "id, name, is_nushi, area, fishing_spot, time_from, time_to, weather, bait, remarks",
+      "id, name, is_nushi, time_from, time_to, weather, bait, remarks, areas(area, fishing_spot)",
     )
     .order("name")
     .range(from, to);
@@ -88,8 +88,8 @@ export default async function FishListPage(props: PageProps<"/fish">) {
                 <tr key={fish.id}>
                   <td className="px-4 py-3">{fish.name}</td>
                   <td className="px-4 py-3">{fish.is_nushi ? "○" : ""}</td>
-                  <td className="px-4 py-3">{fish.area}</td>
-                  <td className="px-4 py-3">{fish.fishing_spot ?? "未設定"}</td>
+                  <td className="px-4 py-3">{fish.areas?.area ?? "不明"}</td>
+                  <td className="px-4 py-3">{fish.areas?.fishing_spot ?? "未設定"}</td>
                   <td className="px-4 py-3">
                     {formatTimeRange(fish.time_from, fish.time_to)}
                   </td>
