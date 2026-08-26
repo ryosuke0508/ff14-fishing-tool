@@ -1,0 +1,192 @@
+"use client";
+
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
+import { useMemo, useState } from "react";
+
+export type AreaHierarchyEntry = {
+  expansion: string | null;
+  expansionId: number | null;
+  greaterRegion: string | null;
+  greaterRegionId: number | null;
+  region: string | null;
+  regionId: number | null;
+};
+
+// 名前でユニーク化し、idがあればid順、なければ50音順に並べる
+function uniqueSorted(entries: { name: string; id: number | null }[]) {
+  const map = new Map<string, number | null>();
+  for (const { name, id } of entries) {
+    if (!map.has(name)) map.set(name, id);
+  }
+  return [...map.entries()]
+    .sort((a, b) => {
+      if (a[1] !== null && b[1] !== null) return a[1] - b[1];
+      return a[0].localeCompare(b[0], "ja");
+    })
+    .map(([name]) => name);
+}
+
+export default function FilterForm({
+  hierarchy,
+}: {
+  hierarchy: AreaHierarchyEntry[];
+}) {
+  const searchParams = useSearchParams();
+
+  const [expansion, setExpansion] = useState(
+    searchParams.get("expansion") ?? "",
+  );
+  const [greaterRegion, setGreaterRegion] = useState(
+    searchParams.get("greater_region") ?? "",
+  );
+  const [region, setRegion] = useState(searchParams.get("region") ?? "");
+
+  // 拡張パッケージの選択肢は常に全件
+  const expansionOptions = useMemo(
+    () =>
+      uniqueSorted(
+        hierarchy
+          .filter((h) => h.expansion)
+          .map((h) => ({ name: h.expansion as string, id: h.expansionId })),
+      ),
+    [hierarchy],
+  );
+
+  // 地方の選択肢は、選択中の拡張パッケージに属するものだけ
+  const greaterRegionOptions = useMemo(
+    () =>
+      uniqueSorted(
+        hierarchy
+          .filter(
+            (h) => h.greaterRegion && (!expansion || h.expansion === expansion),
+          )
+          .map((h) => ({
+            name: h.greaterRegion as string,
+            id: h.greaterRegionId,
+          })),
+      ),
+    [hierarchy, expansion],
+  );
+
+  // 地域の選択肢は、選択中の拡張パッケージ・地方に属するものだけ
+  const regionOptions = useMemo(
+    () =>
+      uniqueSorted(
+        hierarchy
+          .filter(
+            (h) =>
+              h.region &&
+              (!expansion || h.expansion === expansion) &&
+              (!greaterRegion || h.greaterRegion === greaterRegion),
+          )
+          .map((h) => ({ name: h.region as string, id: h.regionId })),
+      ),
+    [hierarchy, expansion, greaterRegion],
+  );
+
+  const handleExpansionChange = (value: string) => {
+    setExpansion(value);
+    if (
+      greaterRegion &&
+      !hierarchy.some(
+        (h) => h.expansion === value && h.greaterRegion === greaterRegion,
+      )
+    ) {
+      setGreaterRegion("");
+      setRegion("");
+      return;
+    }
+    if (region && !hierarchy.some((h) => h.expansion === value && h.region === region)) {
+      setRegion("");
+    }
+  };
+
+  const handleGreaterRegionChange = (value: string) => {
+    setGreaterRegion(value);
+    if (
+      region &&
+      !hierarchy.some((h) => h.greaterRegion === value && h.region === region)
+    ) {
+      setRegion("");
+    }
+  };
+
+  const hasFilter = Boolean(expansion || greaterRegion || region);
+
+  return (
+    <form className="mb-6 flex flex-wrap items-end gap-3 rounded-lg border border-sky-200 bg-white/60 p-4">
+      <div className="flex flex-col gap-1">
+        <label htmlFor="expansion" className="text-xs text-sky-800">
+          拡張パッケージ
+        </label>
+        <select
+          id="expansion"
+          name="expansion"
+          value={expansion}
+          onChange={(e) => handleExpansionChange(e.target.value)}
+          className="rounded border border-sky-300 bg-white px-2 py-1 text-sm"
+        >
+          <option value="">すべて</option>
+          {expansionOptions.map((v) => (
+            <option key={v} value={v}>
+              {v}
+            </option>
+          ))}
+        </select>
+      </div>
+      <div className="flex flex-col gap-1">
+        <label htmlFor="greater_region" className="text-xs text-sky-800">
+          地方
+        </label>
+        <select
+          id="greater_region"
+          name="greater_region"
+          value={greaterRegion}
+          onChange={(e) => handleGreaterRegionChange(e.target.value)}
+          className="rounded border border-sky-300 bg-white px-2 py-1 text-sm"
+        >
+          <option value="">すべて</option>
+          {greaterRegionOptions.map((v) => (
+            <option key={v} value={v}>
+              {v}
+            </option>
+          ))}
+        </select>
+      </div>
+      <div className="flex flex-col gap-1">
+        <label htmlFor="region" className="text-xs text-sky-800">
+          地域
+        </label>
+        <select
+          id="region"
+          name="region"
+          value={region}
+          onChange={(e) => setRegion(e.target.value)}
+          className="rounded border border-sky-300 bg-white px-2 py-1 text-sm"
+        >
+          <option value="">すべて</option>
+          {regionOptions.map((v) => (
+            <option key={v} value={v}>
+              {v}
+            </option>
+          ))}
+        </select>
+      </div>
+      <button
+        type="submit"
+        className="rounded-full bg-sky-500 px-5 py-1.5 text-sm font-medium text-white hover:bg-sky-600"
+      >
+        絞り込む
+      </button>
+      {hasFilter && (
+        <Link
+          href="/fish"
+          className="rounded-full bg-sky-100 px-5 py-1.5 text-sm font-medium text-sky-900 hover:bg-sky-200"
+        >
+          解除
+        </Link>
+      )}
+    </form>
+  );
+}

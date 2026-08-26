@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
+import FilterForm, { type AreaHierarchyEntry } from "./FilterForm";
 
 export const metadata: Metadata = {
   title: "魚一覧｜ヌシ釣りツール（仮）",
@@ -37,7 +38,6 @@ type FishRow = {
 };
 
 type AreaOption = {
-  fishing_spot: string | null;
   region: string | null;
   region_id: number | null;
   greater_region: string | null;
@@ -45,22 +45,6 @@ type AreaOption = {
   expansion: string | null;
   expansion_id: number | null;
 };
-
-// {name, id}のペアを重複排除し、id順に並べる（idがない場合は名前順）
-function uniqueOptions(
-  entries: { name: string | null; id: number | null }[],
-): string[] {
-  const map = new Map<string, number | null>();
-  for (const { name, id } of entries) {
-    if (name && !map.has(name)) map.set(name, id);
-  }
-  return [...map.entries()]
-    .sort((a, b) => {
-      if (a[1] !== null && b[1] !== null) return a[1] - b[1];
-      return a[0].localeCompare(b[0], "ja");
-    })
-    .map(([name]) => name);
-}
 
 function firstParam(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] : value;
@@ -85,7 +69,6 @@ export default async function FishListPage(props: PageProps<"/fish">) {
   const searchParams = await props.searchParams;
 
   const filters = {
-    fishing_spot: firstParam(searchParams.fishing_spot),
     region: firstParam(searchParams.region),
     greater_region: firstParam(searchParams.greater_region),
     expansion: firstParam(searchParams.expansion),
@@ -95,7 +78,7 @@ export default async function FishListPage(props: PageProps<"/fish">) {
   const { data: areaOptions, error: areaOptionsError } = await supabase
     .from("areas")
     .select(
-      "fishing_spot, region, region_id, greater_region, greater_region_id, expansion, expansion_id",
+      "region, region_id, greater_region, greater_region_id, expansion, expansion_id",
     );
 
   if (areaOptionsError) {
@@ -103,25 +86,20 @@ export default async function FishListPage(props: PageProps<"/fish">) {
   }
 
   const options = (areaOptions ?? []) as AreaOption[];
-  const fishingSpotOptions = uniqueOptions(
-    options.map((o) => ({ name: o.fishing_spot, id: null })),
-  );
-  const regionOptions = uniqueOptions(
-    options.map((o) => ({ name: o.region, id: o.region_id })),
-  );
-  const greaterRegionOptions = uniqueOptions(
-    options.map((o) => ({ name: o.greater_region, id: o.greater_region_id })),
-  );
-  const expansionOptions = uniqueOptions(
-    options.map((o) => ({ name: o.expansion, id: o.expansion_id })),
-  );
+  const hierarchy: AreaHierarchyEntry[] = options.map((o) => ({
+    expansion: o.expansion,
+    expansionId: o.expansion_id,
+    greaterRegion: o.greater_region,
+    greaterRegionId: o.greater_region_id,
+    region: o.region,
+    regionId: o.region_id,
+  }));
 
   // 絞り込み条件をfish/areasの両方のクエリに適用するヘルパー
   const applyFilters = <T,>(query: T): T => {
     let q = query as unknown as {
       eq: (column: string, value: string) => typeof q;
     };
-    if (filters.fishing_spot) q = q.eq("areas.fishing_spot", filters.fishing_spot);
     if (filters.region) q = q.eq("areas.region", filters.region);
     if (filters.greater_region)
       q = q.eq("areas.greater_region", filters.greater_region);
@@ -132,7 +110,7 @@ export default async function FishListPage(props: PageProps<"/fish">) {
   const { count, error: countError } = await applyFilters(
     supabase
       .from("fish")
-      .select("*, areas!inner(fishing_spot, region, greater_region, expansion)", {
+      .select("*, areas!inner(region, greater_region, expansion)", {
         count: "exact",
         head: true,
       }),
@@ -163,7 +141,6 @@ export default async function FishListPage(props: PageProps<"/fish">) {
   }
 
   const fishList = data as unknown as FishRow[];
-  const hasFilter = Object.values(filters).some(Boolean);
 
   return (
     <div className="flex flex-1 flex-col px-4 py-10 sm:px-6">
@@ -175,95 +152,7 @@ export default async function FishListPage(props: PageProps<"/fish">) {
           データベースに登録された魚を表示しています。
         </p>
 
-        {/* 絞り込みフォーム */}
-        <form className="mb-6 flex flex-wrap items-end gap-3 rounded-lg border border-sky-200 bg-white/60 p-4">
-          <div className="flex flex-col gap-1">
-            <label htmlFor="expansion" className="text-xs text-sky-800">
-              拡張パッケージ
-            </label>
-            <select
-              id="expansion"
-              name="expansion"
-              defaultValue={filters.expansion ?? ""}
-              className="rounded border border-sky-300 bg-white px-2 py-1 text-sm"
-            >
-              <option value="">すべて</option>
-              {expansionOptions.map((v) => (
-                <option key={v} value={v}>
-                  {v}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="flex flex-col gap-1">
-            <label htmlFor="greater_region" className="text-xs text-sky-800">
-              地方
-            </label>
-            <select
-              id="greater_region"
-              name="greater_region"
-              defaultValue={filters.greater_region ?? ""}
-              className="rounded border border-sky-300 bg-white px-2 py-1 text-sm"
-            >
-              <option value="">すべて</option>
-              {greaterRegionOptions.map((v) => (
-                <option key={v} value={v}>
-                  {v}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="flex flex-col gap-1">
-            <label htmlFor="region" className="text-xs text-sky-800">
-              地域
-            </label>
-            <select
-              id="region"
-              name="region"
-              defaultValue={filters.region ?? ""}
-              className="rounded border border-sky-300 bg-white px-2 py-1 text-sm"
-            >
-              <option value="">すべて</option>
-              {regionOptions.map((v) => (
-                <option key={v} value={v}>
-                  {v}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="flex flex-col gap-1">
-            <label htmlFor="fishing_spot" className="text-xs text-sky-800">
-              釣り場
-            </label>
-            <select
-              id="fishing_spot"
-              name="fishing_spot"
-              defaultValue={filters.fishing_spot ?? ""}
-              className="rounded border border-sky-300 bg-white px-2 py-1 text-sm"
-            >
-              <option value="">すべて</option>
-              {fishingSpotOptions.map((v) => (
-                <option key={v} value={v}>
-                  {v}
-                </option>
-              ))}
-            </select>
-          </div>
-          <button
-            type="submit"
-            className="rounded-full bg-sky-500 px-5 py-1.5 text-sm font-medium text-white hover:bg-sky-600"
-          >
-            絞り込む
-          </button>
-          {hasFilter && (
-            <Link
-              href="/fish"
-              className="rounded-full bg-sky-100 px-5 py-1.5 text-sm font-medium text-sky-900 hover:bg-sky-200"
-            >
-              解除
-            </Link>
-          )}
-        </form>
+        <FilterForm hierarchy={hierarchy} />
 
         <div className="overflow-x-auto rounded-lg border border-sky-200 bg-white/60">
           <table className="w-full min-w-[1120px] text-left text-sm">
