@@ -20,7 +20,7 @@ function formatTimeRange(from: string | null, to: string | null) {
   const start = formatTime(from);
   const end = formatTime(to);
   if (start && end) return `${start}〜${end}`;
-  return start ?? end ?? "未設定";
+  return start ?? end ?? "指定なし";
 }
 
 // fish.areasは多対一のJOIN結果（実際は単一オブジェクト）だが、
@@ -38,8 +38,7 @@ type FishRow = {
 };
 
 type AreaOption = {
-  region: string | null;
-  region_id: number | null;
+  area: string | null;
   greater_region: string | null;
   greater_region_id: number | null;
   expansion: string | null;
@@ -69,20 +68,49 @@ export default async function FishListPage(props: PageProps<"/fish">) {
   const searchParams = await props.searchParams;
 
   const filters = {
-    region: firstParam(searchParams.region),
+    area: firstParam(searchParams.area),
     greater_region: firstParam(searchParams.greater_region),
     expansion: firstParam(searchParams.expansion),
   };
 
-  // 絞り込みプルダウンの選択肢をareasテーブルから取得
-  const { data: areaOptions, error: areaOptionsError } = await supabase
-    .from("areas")
-    .select(
-      "region, region_id, greater_region, greater_region_id, expansion, expansion_id",
-    );
+  // 絞り込み条件をfish/areasの両方のクエリに適用するヘルパー
+  const applyFilters = <T,>(query: T): T => {
+    let q = query as unknown as {
+      eq: (column: string, value: string) => typeof q;
+    };
+    if (filters.area) q = q.eq("areas.area", filters.area);
+    if (filters.greater_region)
+      q = q.eq("areas.greater_region", filters.greater_region);
+    if (filters.expansion) q = q.eq("areas.expansion", filters.expansion);
+    return q as unknown as T;
+  };
+
+  // 絞り込みプルダウンの選択肢（areasテーブル）と件数は互いに依存しないため並列取得する
+  const [areaOptionsResult, countResult] = await Promise.all([
+    supabase
+      .from("areas")
+      .select(
+        "area, greater_region, greater_region_id, expansion, expansion_id",
+      ),
+    applyFilters(
+      supabase
+        .from("fish")
+        .select("*, areas!inner(area, greater_region, expansion)", {
+          count: "exact",
+          head: true,
+        }),
+    ),
+  ]);
+
+  const { data: areaOptions, error: areaOptionsError } = areaOptionsResult;
+  const { count, error: countError } = countResult;
 
   if (areaOptionsError) {
     throw new Error(`絞り込み候補の取得に失敗しました: ${areaOptionsError.message}`);
+  }
+
+  if (countError) {
+    throw new Error(`魚一覧の件数取得に失敗しました: ${countError.message}`);
   }
 
   const options = (areaOptions ?? []) as AreaOption[];
@@ -91,34 +119,8 @@ export default async function FishListPage(props: PageProps<"/fish">) {
     expansionId: o.expansion_id,
     greaterRegion: o.greater_region,
     greaterRegionId: o.greater_region_id,
-    region: o.region,
-    regionId: o.region_id,
+    area: o.area,
   }));
-
-  // 絞り込み条件をfish/areasの両方のクエリに適用するヘルパー
-  const applyFilters = <T,>(query: T): T => {
-    let q = query as unknown as {
-      eq: (column: string, value: string) => typeof q;
-    };
-    if (filters.region) q = q.eq("areas.region", filters.region);
-    if (filters.greater_region)
-      q = q.eq("areas.greater_region", filters.greater_region);
-    if (filters.expansion) q = q.eq("areas.expansion", filters.expansion);
-    return q as unknown as T;
-  };
-
-  const { count, error: countError } = await applyFilters(
-    supabase
-      .from("fish")
-      .select("*, areas!inner(region, greater_region, expansion)", {
-        count: "exact",
-        head: true,
-      }),
-  );
-
-  if (countError) {
-    throw new Error(`魚一覧の件数取得に失敗しました: ${countError.message}`);
-  }
 
   const totalPages = Math.max(1, Math.ceil((count ?? 0) / PAGE_SIZE));
   const requestedPage = Math.max(1, Number(searchParams.page ?? "1") || 1);
@@ -161,8 +163,7 @@ export default async function FishListPage(props: PageProps<"/fish">) {
                 <th className="px-4 py-3 font-semibold">魚名</th>
                 <th className="px-4 py-3 font-semibold">ヌシ</th>
                 <th className="px-4 py-3 font-semibold">釣れるエリア</th>
-                <th className="px-4 py-3 font-semibold">釣り場</th>
-                <th className="px-4 py-3 font-semibold">釣れる時間帯（エオルゼア時間）</th>
+                <th className="px-4 py-3 font-semibold">釣れる時間帯（ET）</th>
                 <th className="px-4 py-3 font-semibold">必要な天候</th>
                 <th className="px-4 py-3 font-semibold">餌</th>
                 <th className="px-4 py-3 font-semibold">備考</th>
@@ -179,14 +180,13 @@ export default async function FishListPage(props: PageProps<"/fish">) {
               {fishList.map((fish) => (
                 <tr key={fish.id}>
                   <td className="px-4 py-3">{fish.name}</td>
-                  <td className="px-4 py-3">{fish.is_nushi ? "○" : ""}</td>
+                  <td className="px-4 py-3">{fish.is_nushi ? "★" : ""}</td>
                   <td className="px-4 py-3">{fish.areas?.area ?? "不明"}</td>
-                  <td className="px-4 py-3">{fish.areas?.fishing_spot ?? "未設定"}</td>
                   <td className="px-4 py-3">
                     {formatTimeRange(fish.time_from, fish.time_to)}
                   </td>
-                  <td className="px-4 py-3">{fish.weather ?? "未設定"}</td>
-                  <td className="px-4 py-3">{fish.bait ?? "未設定"}</td>
+                  <td className="px-4 py-3">{fish.weather ?? "指定なし"}</td>
+                  <td className="px-4 py-3">{fish.bait ?? "指定なし"}</td>
                   <td className="px-4 py-3">{fish.remarks ?? "特になし"}</td>
                 </tr>
               ))}

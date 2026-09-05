@@ -9,8 +9,7 @@ export type AreaHierarchyEntry = {
   expansionId: number | null;
   greaterRegion: string | null;
   greaterRegionId: number | null;
-  region: string | null;
-  regionId: number | null;
+  area: string | null;
 };
 
 // 名前でユニーク化し、idがあればid順、なければ50音順に並べる
@@ -40,7 +39,7 @@ export default function FilterForm({
   const [greaterRegion, setGreaterRegion] = useState(
     searchParams.get("greater_region") ?? "",
   );
-  const [region, setRegion] = useState(searchParams.get("region") ?? "");
+  const [area, setArea] = useState(searchParams.get("area") ?? "");
 
   // 拡張パッケージの選択肢は常に全件
   const expansionOptions = useMemo(
@@ -69,18 +68,18 @@ export default function FilterForm({
     [hierarchy, expansion],
   );
 
-  // 地域の選択肢は、選択中の拡張パッケージ・地方に属するものだけ
-  const regionOptions = useMemo(
+  // エリアの選択肢は、選択中の拡張パッケージ・地方に属するものだけ
+  const areaOptions = useMemo(
     () =>
       uniqueSorted(
         hierarchy
           .filter(
             (h) =>
-              h.region &&
+              h.area &&
               (!expansion || h.expansion === expansion) &&
               (!greaterRegion || h.greaterRegion === greaterRegion),
           )
-          .map((h) => ({ name: h.region as string, id: h.regionId })),
+          .map((h) => ({ name: h.area as string, id: null })),
       ),
     [hierarchy, expansion, greaterRegion],
   );
@@ -94,25 +93,25 @@ export default function FilterForm({
       )
     ) {
       setGreaterRegion("");
-      setRegion("");
+      setArea("");
       return;
     }
-    if (region && !hierarchy.some((h) => h.expansion === value && h.region === region)) {
-      setRegion("");
+    if (area && !hierarchy.some((h) => h.expansion === value && h.area === area)) {
+      setArea("");
     }
   };
 
   const handleGreaterRegionChange = (value: string) => {
     setGreaterRegion(value);
     if (
-      region &&
-      !hierarchy.some((h) => h.greaterRegion === value && h.region === region)
+      area &&
+      !hierarchy.some((h) => h.greaterRegion === value && h.area === area)
     ) {
-      setRegion("");
+      setArea("");
     }
   };
 
-  const hasFilter = Boolean(expansion || greaterRegion || region);
+  const hasFilter = Boolean(expansion || greaterRegion || area);
 
   return (
     <form className="mb-6 flex flex-wrap items-end gap-3 rounded-lg border border-sky-200 bg-white/60 p-4">
@@ -155,18 +154,18 @@ export default function FilterForm({
         </select>
       </div>
       <div className="flex flex-col gap-1">
-        <label htmlFor="region" className="text-xs text-sky-800">
-          地域
+        <label htmlFor="area" className="text-xs text-sky-800">
+          釣れるエリア
         </label>
         <select
-          id="region"
-          name="region"
-          value={region}
-          onChange={(e) => setRegion(e.target.value)}
+          id="area"
+          name="area"
+          value={area}
+          onChange={(e) => setArea(e.target.value)}
           className="rounded border border-sky-300 bg-white px-2 py-1 text-sm"
         >
           <option value="">すべて</option>
-          {regionOptions.map((v) => (
+          {areaOptions.map((v) => (
             <option key={v} value={v}>
               {v}
             </option>
