@@ -1,15 +1,18 @@
+// 釣れるエリアの絞り込みフォーム
+// 絞り込みのプルダウンを階層構造に従って連動させる
 "use client";
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useMemo, useState } from "react";
 
+// 釣れるエリアの階層構造を表す型
 export type AreaHierarchyEntry = {
-  expansion: string | null;
-  expansionId: number | null;
-  greaterRegion: string | null;
-  greaterRegionId: number | null;
-  area: string | null;
+  expansion: string | null;       // 拡張パッケージ名
+  expansionId: number | null;     // 拡張パッケージID
+  greaterRegion: string | null;   // 地方名
+  greaterRegionId: number | null; // 地方ID
+  area: string | null;            // 釣れるエリア名
 };
 
 // 名前でユニーク化し、idがあればid順、なければ50音順に並べる
@@ -26,6 +29,7 @@ function uniqueSorted(entries: { name: string; id: number | null }[]) {
     .map(([name]) => name);
 }
 
+// 絞り込みフォーム
 export default function FilterForm({
   hierarchy,
 }: {
@@ -84,6 +88,7 @@ export default function FilterForm({
     [hierarchy, expansion, greaterRegion],
   );
 
+  // 拡張パッケージを変更したとき、選択中の地方・エリアが属さない場合はクリアする
   const handleExpansionChange = (value: string) => {
     setExpansion(value);
     if (
@@ -101,6 +106,7 @@ export default function FilterForm({
     }
   };
 
+  // 地方を変更したとき、選択中のエリアが属さない場合はクリアする
   const handleGreaterRegionChange = (value: string) => {
     setGreaterRegion(value);
     if (
@@ -111,6 +117,7 @@ export default function FilterForm({
     }
   };
 
+  // 絞り込み条件が1つでもあれば解除ボタンを表示する
   const hasFilter = Boolean(expansion || greaterRegion || area);
 
   return (
